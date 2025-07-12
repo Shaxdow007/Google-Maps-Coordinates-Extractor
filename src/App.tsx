@@ -80,17 +80,18 @@ const App = () => {
       // Remove any whitespace
       url = url.trim();
       
-      // Pattern 1: @lat,lng format (most common)
-      const atPattern = /@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-      const atMatch = url.match(atPattern);
-      if (atMatch) {
+
+      // Pattern 1: !3dlat!4dlng format (preferred when present)
+      const dataPattern = /!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
+      const dataMatch = url.match(dataPattern);
+      if (dataMatch) {
         return {
-          lat: parseFloat(atMatch[1]),
-          lng: parseFloat(atMatch[2])
+          lat: parseFloat(dataMatch[1]),
+          lng: parseFloat(dataMatch[2])
         };
       }
 
-      // Pattern 2: ll=lat,lng format
+      // Pattern 2: @lat,lng format (common map links)
       const llPattern = /[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
       const llMatch = url.match(llPattern);
       if (llMatch) {
@@ -100,7 +101,7 @@ const App = () => {
         };
       }
 
-      // Pattern 3: q=lat,lng format
+      // Pattern 3: ll=lat,lng format
       const qPattern = /[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
       const qMatch = url.match(qPattern);
       if (qMatch) {
@@ -110,7 +111,7 @@ const App = () => {
         };
       }
 
-      // Pattern 4: center=lat,lng format
+       // Pattern 4: q=lat,lng format
       const centerPattern = /[?&]center=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
       const centerMatch = url.match(centerPattern);
       if (centerMatch) {
@@ -120,7 +121,7 @@ const App = () => {
         };
       }
 
-      // Pattern 5: Direct coordinates in URL path
+       // Pattern 5: center=lat,lng format
       const directPattern = /\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
       const directMatch = url.match(directPattern);
       if (directMatch) {
