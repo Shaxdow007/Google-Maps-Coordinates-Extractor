@@ -42,9 +42,9 @@ const App = () => {
   const [copiedLat, setCopiedLat] = useState(false);
   const [copiedLng, setCopiedLng] = useState(false);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
+  const [preferViewport, setPreferViewport] = useState(true);
 
   useEffect(() => {
-    // Load search history from localStorage
     const savedHistory = localStorage.getItem('coordinatesHistory');
     if (savedHistory) {
       try {
@@ -58,95 +58,53 @@ const App = () => {
       }
     }
 
-    // Load Google Maps API
     loadGoogleMapsAPI();
   }, []);
 
   const loadGoogleMapsAPI = () => {
-    // Check if Google Maps is already loaded
     if (window.google && window.google.maps) {
       setGoogleMapsLoaded(true);
       return;
     }
-
-    // For demo purposes, we'll use fallback parsing only
-    // In production, you would load the Google Maps API here
     console.log('Google Maps API would be loaded here with a valid API key');
     setGoogleMapsLoaded(false);
   };
 
-  const extractCoordinatesFromUrl = (url: string): Coordinates | null => {
+  const extractCoordinatesFromUrl = (url: string): { viewport?: Coordinates; exact?: Coordinates } => {
     try {
-      // Remove any whitespace
       url = url.trim();
-      
+      const result: { viewport?: Coordinates; exact?: Coordinates } = {};
 
-      // Pattern 1: !3dlat!4dlng format (preferred when present)
-      const dataPattern = /!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
-      const dataMatch = url.match(dataPattern);
-      if (dataMatch) {
-        return {
-          lat: parseFloat(dataMatch[1]),
-          lng: parseFloat(dataMatch[2])
+      // Extract viewport coordinates (@lat,lng)
+      const viewportMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)(?:,(\d+z))?/);
+      if (viewportMatch) {
+        result.viewport = {
+          lat: parseFloat(viewportMatch[1]),
+          lng: parseFloat(viewportMatch[2])
         };
       }
 
-      // Pattern 2: @lat,lng format (common map links)
-      const llPattern = /[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-      const llMatch = url.match(llPattern);
-      if (llMatch) {
-        return {
-          lat: parseFloat(llMatch[1]),
-          lng: parseFloat(llMatch[2])
+      // Extract exact coordinates (!3dlat!4dlng)
+      const exactMatch = url.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
+      if (exactMatch) {
+        result.exact = {
+          lat: parseFloat(exactMatch[1]),
+          lng: parseFloat(exactMatch[2])
         };
       }
 
-      // Pattern 3: ll=lat,lng format
-      const qPattern = /[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-      const qMatch = url.match(qPattern);
-      if (qMatch) {
-        return {
-          lat: parseFloat(qMatch[1]),
-          lng: parseFloat(qMatch[2])
-        };
-      }
-
-       // Pattern 4: q=lat,lng format
-      const centerPattern = /[?&]center=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-      const centerMatch = url.match(centerPattern);
-      if (centerMatch) {
-        return {
-          lat: parseFloat(centerMatch[1]),
-          lng: parseFloat(centerMatch[2])
-        };
-      }
-
-       // Pattern 5: center=lat,lng format
-      const directPattern = /\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-      const directMatch = url.match(directPattern);
-      if (directMatch) {
-        return {
-          lat: parseFloat(directMatch[1]),
-          lng: parseFloat(directMatch[2])
-        };
-      }
-
-      return null;
+      return result;
     } catch (e) {
       console.error('Error extracting coordinates from URL:', e);
-      return null;
+      return {};
     }
   };
 
   const geocodePlace = async (place: string): Promise<Coordinates | null> => {
-    // For demo purposes, return null to show error handling
-    // In production, this would use Google Maps Geocoding API
     return null;
   };
 
   const geocodePlaceId = async (placeId: string): Promise<Coordinates | null> => {
-    // For demo purposes, return null to show error handling
-    // In production, this would use Google Maps Geocoding API
     return null;
   };
 
@@ -171,15 +129,22 @@ const App = () => {
       let type: 'url' | 'place' | 'placeId' = 'place';
 
       if (isGoogleMapsUrl(input)) {
-        // Extract from URL
-        coordinates = extractCoordinatesFromUrl(input);
+        const extracted = extractCoordinatesFromUrl(input);
+        
+        if (preferViewport && extracted.viewport) {
+          coordinates = extracted.viewport;
+        } else if (extracted.exact) {
+          coordinates = extracted.exact;
+        } else if (extracted.viewport) {
+          coordinates = extracted.viewport;
+        }
+
         type = 'url';
         
         if (!coordinates) {
           throw new Error('Could not extract coordinates from this Google Maps URL. Please try a different URL format.');
         }
       } else if (isPlaceId(input)) {
-        // Handle Place ID
         const cleanPlaceId = input.replace('place_id:', '');
         coordinates = await geocodePlaceId(cleanPlaceId);
         type = 'placeId';
@@ -188,14 +153,12 @@ const App = () => {
           throw new Error('Could not find coordinates for this Place ID. Please check the ID and try again.');
         }
       } else {
-        // Handle place name
         throw new Error('Place name geocoding requires a Google Maps API key. Please use a Google Maps URL instead, or configure the API key.');
       }
 
       if (coordinates) {
         setResult(coordinates);
         
-        // Add to history
         const newResult: SearchResult = {
           id: Date.now().toString(),
           input: input.trim(),
@@ -204,7 +167,7 @@ const App = () => {
           type
         };
         
-        const updatedHistory = [newResult, ...history.slice(0, 9)]; // Keep last 10 results
+        const updatedHistory = [newResult, ...history.slice(0, 9)];
         setHistory(updatedHistory);
         localStorage.setItem('coordinatesHistory', JSON.stringify(updatedHistory));
       }
@@ -245,6 +208,7 @@ const App = () => {
       console.error('Failed to copy longitude:', err);
     }
   };
+
   const clearHistory = () => {
     setHistory([]);
     localStorage.removeItem('coordinatesHistory');
@@ -273,7 +237,6 @@ const App = () => {
           </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
             Extract latitude and longitude coordinates from Google Maps URLs, place names, or place IDs.
-            Perfect for developers, researchers, and location-based applications.
           </p>
         </div>
 
@@ -296,6 +259,20 @@ const App = () => {
                 />
                 <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               </div>
+              {input && isGoogleMapsUrl(input) && (
+                <div className="mt-2 flex items-center">
+                  <input
+                    type="checkbox"
+                    id="preferViewport"
+                    checked={preferViewport}
+                    onChange={() => setPreferViewport(!preferViewport)}
+                    className="mr-2"
+                  />
+                  <label htmlFor="preferViewport" className="text-sm text-gray-700">
+                    Prefer viewport coordinates (@lat,lng)
+                  </label>
+                </div>
+              )}
               {input && (
                 <p className="mt-2 text-sm text-gray-500">
                   Detected input type: <span className="font-medium text-blue-600">{getInputType(input)}</span>
@@ -323,14 +300,12 @@ const App = () => {
           </form>
 
           {/* API Status */}
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <div className="flex items-center">
-                <AlertCircle className="w-5 h-5 text-amber-600 mr-2" />
-                <p className="text-sm text-amber-800">
-                  Google Maps API not configured. URL parsing will work, but place name geocoding is limited.
-                </p>
-              </div>
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 text-amber-600 mr-2" />
+              <p className="text-sm text-amber-800">
+                Google Maps API not configured. URL parsing will work, but place name geocoding is limited.
+              </p>
             </div>
           </div>
         </div>
@@ -339,10 +314,8 @@ const App = () => {
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <div className="flex items-center">
-              <AlertCircle className="w-5 h-5 text-blue-600 mr-2" />
-              <p className="text-sm text-blue-800">
-                <strong>Demo Mode:</strong> Google Maps URL parsing is fully functional. To enable place name and Place ID geocoding, configure a Google Maps API key.
-              </p>
+              <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+              <p className="text-sm text-red-800">{error}</p>
             </div>
           </div>
         )}
@@ -459,13 +432,13 @@ const App = () => {
             <div>
               <h4 className="font-medium text-gray-700 mb-2">Google Maps URLs</h4>
               <p className="text-sm text-gray-600">
-                Paste any Google Maps URL containing coordinates. Works with various URL formats including shortened links.
+                Paste any Google Maps URL. The tool can extract both viewport (@lat,lng) and exact place (!3d!4d) coordinates.
               </p>
             </div>
             <div>
-              <h4 className="font-medium text-gray-700 mb-2">Place Names</h4>
+              <h4 className="font-medium text-gray-700 mb-2">Coordinate Types</h4>
               <p className="text-sm text-gray-600">
-                Enter any location name, address, or landmark. (Requires Google Maps API key configuration)
+                Viewport coordinates show the map center, while exact coordinates show the precise location. Toggle the preference checkbox.
               </p>
             </div>
             <div>
@@ -474,33 +447,6 @@ const App = () => {
                 Use Google Places API Place IDs (starting with "ChIJ") for precise location identification. (Requires API key)
               </p>
             </div>
-          </div>
-        </div>
-        {/* Demo Examples */}
-        <div className="mt-6 bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Try These Example URLs</h3>
-          <div className="space-y-2">
-            <button
-              onClick={() => setInput('https://www.google.com/maps/@40.7589,-73.9851,15z')}
-              className="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-            >
-              <code className="text-sm text-blue-600">https://www.google.com/maps/@40.7589,-73.9851,15z</code>
-              <p className="text-xs text-gray-500 mt-1">Times Square, New York</p>
-            </button>
-            <button
-              onClick={() => setInput('https://maps.google.com/maps?q=48.8584,2.2945')}
-              className="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-            >
-              <code className="text-sm text-blue-600">https://maps.google.com/maps?q=48.8584,2.2945</code>
-              <p className="text-xs text-gray-500 mt-1">Eiffel Tower, Paris</p>
-            </button>
-            <button
-              onClick={() => setInput('https://www.google.com/maps/place/@51.5074,-0.1278,17z')}
-              className="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-            >
-              <code className="text-sm text-blue-600">https://www.google.com/maps/place/@51.5074,-0.1278,17z</code>
-              <p className="text-xs text-gray-500 mt-1">London, UK</p>
-            </button>
           </div>
         </div>
       </div>
