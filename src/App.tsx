@@ -64,7 +64,7 @@ const App = () => {
   const loadGoogleMapsAPI = () => {
     if (window.google && window.google.maps) {
       setGoogleMapsLoaded(true);
-      return;
+      return; 
     }
     console.log('Google Maps API would be loaded here with a valid API key');
     setGoogleMapsLoaded(false);
@@ -75,7 +75,6 @@ const App = () => {
       url = url.trim();
       const result: { viewport?: Coordinates; exact?: Coordinates } = {};
 
-      // Extract viewport coordinates (@lat,lng)
       const viewportMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)(?:,(\d+z))?/);
       if (viewportMatch) {
         result.viewport = {
@@ -84,7 +83,6 @@ const App = () => {
         };
       }
 
-      // Extract exact coordinates (!3dlat!4dlng)
       const exactMatch = url.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
       if (exactMatch) {
         result.exact = {
@@ -215,7 +213,12 @@ const App = () => {
   };
 
   const formatCoordinate = (value: number): string => {
-    return value.toFixed(6);
+    // Convert to fixed decimal if in scientific notation
+    if (value.toString().includes('e')) {
+      return value.toString();
+    }
+    // Otherwise return the raw value (preserves trailing zeros)
+    return value.toString();
   };
 
   const getInputType = (input: string): string => {
@@ -227,7 +230,6 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
             <MapPin className="w-8 h-8 text-blue-600 mr-3" />
@@ -240,7 +242,6 @@ const App = () => {
           </p>
         </div>
 
-        {/* Main Form */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -299,7 +300,6 @@ const App = () => {
             </button>
           </form>
 
-          {/* API Status */}
           <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <div className="flex items-center">
               <AlertCircle className="w-5 h-5 text-amber-600 mr-2" />
@@ -310,7 +310,6 @@ const App = () => {
           </div>
         </div>
 
-        {/* Error Display */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <div className="flex items-center">
@@ -320,7 +319,6 @@ const App = () => {
           </div>
         )}
 
-        {/* Results Display */}
         {result && (
           <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
             <div className="flex items-center justify-between mb-4">
@@ -349,7 +347,9 @@ const App = () => {
                     <Copy className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-lg font-mono text-gray-800">{formatCoordinate(result.lat)}</p>
+                <p className="text-lg font-mono text-gray-800">
+                  {formatCoordinate(result.lat)}
+                </p>
                 {copiedLat && (
                   <p className="text-xs text-emerald-600 mt-1">Latitude copied!</p>
                 )}
@@ -365,7 +365,9 @@ const App = () => {
                     <Copy className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-lg font-mono text-gray-800">{formatCoordinate(result.lng)}</p>
+                <p className="text-lg font-mono text-gray-800">
+                  {formatCoordinate(result.lng)}
+                </p>
                 {copiedLng && (
                   <p className="text-xs text-emerald-600 mt-1">Longitude copied!</p>
                 )}
@@ -374,13 +376,12 @@ const App = () => {
             
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>Formatted:</strong> {formatCoordinate(result.lat)}, {formatCoordinate(result.lng)}
+                <strong>Formatted:</strong> {formatCoordinate(result.lat)}, {formatCoordinate((result.lng))}
               </p>
             </div>
           </div>
         )}
 
-        {/* Search History */}
         {history.length > 0 && (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -403,7 +404,7 @@ const App = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">{item.input}</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        {item.type === 'url' ? 'Google Maps URL' : item.type === 'placeId' ? 'Place ID' : 'Place Name'} • 
+                        {item.type === 'url' ? 'Google Maps URL' : item.type === 'placeId' ? 'Place ID' : 'Place Name'} • {" "}
                         {item.timestamp.toLocaleDateString()} {item.timestamp.toLocaleTimeString()}
                       </p>
                     </div>
@@ -425,7 +426,6 @@ const App = () => {
           </div>
         )}
 
-        {/* Instructions */}
         <div className="mt-8 bg-gray-50 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">How to Use</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -447,6 +447,33 @@ const App = () => {
                 Use Google Places API Place IDs (starting with "ChIJ") for precise location identification. (Requires API key)
               </p>
             </div>
+          </div>
+        </div>
+        {/* Demo Examples */}
+        <div className="mt-6 bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Try These Example URLs</h3>
+          <div className="space-y-2">
+            <button
+              onClick={() => setInput('https://www.google.com/maps/@40.7589,-73.9851,15z')}
+              className="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+            >
+              <code className="text-sm text-blue-600">https://www.google.com/maps/@40.7589,-73.9851,15z</code>
+              <p className="text-xs text-gray-500 mt-1">Times Square, New York</p>
+            </button>
+            <button
+              onClick={() => setInput('https://maps.google.com/maps?q=48.8584,2.2945')}
+              className="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+            >
+              <code className="text-sm text-blue-600">https://maps.google.com/maps?q=48.8584,2.2945</code>
+              <p className="text-xs text-gray-500 mt-1">Eiffel Tower, Paris</p>
+            </button>
+            <button
+              onClick={() => setInput('https://www.google.com/maps/place/@51.5074,-0.1278,17z')}
+              className="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+            >
+              <code className="text-sm text-blue-600">https://www.google.com/maps/place/@51.5074,-0.1278,17z</code>
+              <p className="text-xs text-gray-500 mt-1">London, UK</p>
+            </button>
           </div>
         </div>
       </div>
