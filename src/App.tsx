@@ -43,6 +43,7 @@ const App = () => {
   const [copiedLng, setCopiedLng] = useState(false);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
   const [preferViewport, setPreferViewport] = useState(true);
+  const [showClearModal, setShowClearModal] = useState(false);
 
   useEffect(() => {
     const savedHistory = localStorage.getItem('coordinatesHistory');
@@ -70,31 +71,73 @@ const App = () => {
     setGoogleMapsLoaded(false);
   };
 
-  const extractCoordinatesFromUrl = (url: string): { viewport?: Coordinates; exact?: Coordinates } => {
-    try {
+  const extractCoordinatesFromUrl = (url: string): Coordinates | null => {
+ try {
       url = url.trim();
-      const result: { viewport?: Coordinates; exact?: Coordinates } = {};
-
-      const viewportMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)(?:,(\d+z))?/);
-      if (viewportMatch) {
-        result.viewport = {
-          lat: parseFloat(viewportMatch[1]),
-          lng: parseFloat(viewportMatch[2])
+       // Pattern 1: @lat,lng format
+      const atPattern = /@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+      const atMatch = url.match(atPattern);
+      if (atMatch) {
+        return {
+          lat: parseFloat(atMatch[1]),
+          lng: parseFloat(atMatch[2])
         };
       }
 
-      const exactMatch = url.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
-      if (exactMatch) {
-        result.exact = {
+      // Pattern 2: ll=lat,lng format
+      const llPattern = /[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+      const llMatch = url.match(llPattern);
+      if (llMatch) {
+        return {
+          lat: parseFloat(llMatch[1]),
+          lng: parseFloat(llMatch[2])
+        };
+      }
+
+      // Pattern 3: q=lat,lng format
+      const qPattern = /[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+      const qMatch = url.match(qPattern);
+      if (qMatch) {
+        return {
+          lat: parseFloat(qMatch[1]),
+          lng: parseFloat(qMatch[2])
+        };
+      }
+
+      // Pattern 4: center=lat,lng format
+      const centerPattern = /[?&]center=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+      const centerMatch = url.match(centerPattern);
+      if (centerMatch) {
+        return {
+          lat: parseFloat(centerMatch[1]),
+          lng: parseFloat(centerMatch[2])
+        };
+      }
+
+            // Pattern 5: Direct coordinates in URL path
+      const directPattern = /\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+      const directMatch = url.match(directPattern);
+      if (directMatch) {
+        return {
+          lat: parseFloat(directMatch[1]),
+          lng: parseFloat(directMatch[2])
+        };
+      }
+
+      // Pattern 6: !3dlat!4dlng format
+      const exactPattern = /!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
+      const exactMatch = url.match(exactPattern);
+       if (exactMatch) {
+         return {
           lat: parseFloat(exactMatch[1]),
           lng: parseFloat(exactMatch[2])
         };
       }
 
-      return result;
+      return null;
     } catch (e) {
       console.error('Error extracting coordinates from URL:', e);
-      return {};
+      return null;
     }
   };
 
@@ -127,18 +170,8 @@ const App = () => {
       let type: 'url' | 'place' | 'placeId' = 'place';
 
       if (isGoogleMapsUrl(input)) {
-        const extracted = extractCoordinatesFromUrl(input);
-        
-        if (preferViewport && extracted.viewport) {
-          coordinates = extracted.viewport;
-        } else if (extracted.exact) {
-          coordinates = extracted.exact;
-        } else if (extracted.viewport) {
-          coordinates = extracted.viewport;
-        }
-
+        coordinates = extractCoordinatesFromUrl(input);
         type = 'url';
-        
         if (!coordinates) {
           throw new Error('Could not extract coordinates from this Google Maps URL. Please try a different URL format.');
         }
@@ -210,6 +243,11 @@ const App = () => {
   const clearHistory = () => {
     setHistory([]);
     localStorage.removeItem('coordinatesHistory');
+  };
+
+    const handleClearHistory = () => {
+    clearHistory();
+    setShowClearModal(false);
   };
 
   const formatCoordinate = (value: number): string => {
@@ -382,6 +420,7 @@ const App = () => {
           </div>
         )}
 
+        {/* Search History */}
         {history.length > 0 && (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -390,7 +429,7 @@ const App = () => {
                 Recent Searches
               </h2>
               <button
-                onClick={clearHistory}
+                onClick={() => setShowClearModal(true)}
                 className="text-sm text-gray-500 hover:text-red-600 transition-colors duration-200"
               >
                 Clear History
@@ -476,6 +515,31 @@ const App = () => {
             </button>
           </div>
         </div>
+        {/* Modele */}
+                {showClearModal && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white rounded-lg p-6 shadow-lg w-96">
+              <h3 className="text-lg font-semibold mb-4">Clear History</h3>
+              <p className="text-sm text-gray-700 mb-6">
+                Are you sure you want to clear your search history?
+              </p>
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => setShowClearModal(false)}
+                  className="px-4 py-2 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClearHistory}
+                  className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
